@@ -5,6 +5,8 @@
 
 package com.oath.halodb;
 
+import com.google.common.primitives.Longs;
+
 class Utils {
     static long roundUpToPowerOf2(long number) {
         return (number > 1) ? Long.highestOneBit((number - 1) << 1) : 1;
@@ -37,5 +39,13 @@ class Utils {
 
     static int toUnsignedByte(byte value) {
         return value & 0xFF;
+    }
+
+    static byte[] longToBytes(long value) {
+        return Longs.toByteArray(value);
+    }
+
+    static long bytesToLong(byte[] bytes) {
+        return Longs.fromByteArray(bytes);
     }
 }

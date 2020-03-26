@@ -40,7 +40,7 @@ public final class HaloDB {
         }
     }
 
-    public boolean put(byte[] key, byte[] value) throws HaloDBException {
+    public DBPutResult put(byte[] key, byte[] value) throws HaloDBException {
         try {
             return dbInternal.put(key, value);
         } catch (IOException e) {
