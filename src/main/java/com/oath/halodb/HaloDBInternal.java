@@ -215,7 +215,7 @@ class HaloDBInternal {
         }
     }
 
-    boolean put(byte[] key, byte[] value) throws IOException, HaloDBException {
+    DBPutResult put(byte[] key, byte[] value) throws IOException, HaloDBException {
         if (key.length > Byte.MAX_VALUE) {
             throw new HaloDBException("key length cannot exceed " + Byte.MAX_VALUE);
         }
@@ -223,6 +223,18 @@ class HaloDBInternal {
         //TODO: more fine-grained locking is possible. 
         writeLock.lock();
         try {
+
+            byte[] getResult = this.get(key, 1);
+            if (getResult != null && value != null) {
+                long latestWrite = Utils.bytesToLong(getResult);
+                long currentWrite = Utils.bytesToLong(value);
+                if (latestWrite >= currentWrite) {
+                    // Discard stale write
+                    System.out.println("Discarded stale write.");
+                    return new DBPutResult(true, key, getResult);
+                }
+            }
+
             Record record = new Record(key, value);
             record.setSequenceNumber(getNextSequenceNumber());
             record.setVersion(Versions.CURRENT_DATA_FILE_VERSION);
@@ -231,7 +243,8 @@ class HaloDBInternal {
 
             //TODO: implement getAndSet and use the return value for
             //TODO: markPreviousVersionAsStale method.
-            return inMemoryIndex.put(key, entry);
+            boolean success = inMemoryIndex.put(key, entry);
+            return new DBPutResult(success, key, value);
         } finally {
             writeLock.unlock();
         }
