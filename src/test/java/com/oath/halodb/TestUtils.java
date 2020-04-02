@@ -31,11 +31,11 @@ import java.util.stream.Collectors;
 public class TestUtils {
     private static final Logger logger = LoggerFactory.getLogger(TestUtils.class);
 
-    static String getTestDirectory(String... path) {
+    public static String getTestDirectory(String... path) {
         return getTestDirectoryPath(path).toString();
     }
 
-    static Path getTestDirectoryPath(String... path) {
+    public static Path getTestDirectoryPath(String... path) {
         return Paths.get("tmp", path);
     }
 
@@ -139,7 +139,7 @@ public class TestUtils {
         });
     }
 
-    static void deleteDirectory(File directory) throws IOException {
+    public static void deleteDirectory(File directory) throws IOException {
         if (!directory.exists())
             return;
 
