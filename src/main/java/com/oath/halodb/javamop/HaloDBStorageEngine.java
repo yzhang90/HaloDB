@@ -26,10 +26,13 @@ public class HaloDBStorageEngine {
 
     public DBPutResult put(byte[] key, byte[] value, int rId) {
         try {
+            int time1 = rand.nextInt(500);
+            System.out.println(String.format("Sleep %d millis before put.", time1));
+            Thread.sleep(time1);
             DBPutResult result = db.put(key, value);
-            int time = rand.nextInt(2000);
-            System.out.println("Sleep " + time + " millis");
-            Thread.sleep(time);
+            int time2 = rand.nextInt(500);
+            System.out.println(String.format("Sleep %d millis after put.", time2));
+            Thread.sleep(time2);
             return result;
         } catch (Exception e) {
             e.printStackTrace();
@@ -38,10 +41,21 @@ public class HaloDBStorageEngine {
         return new DBPutResult(false, null, null);
     }
 
-    public byte[] get(byte[] key, int rId) {
+    public byte[] get(byte[] key, int rId) throws HaloDBException {
+        if (rId % 5 == 0) {
+             throw new HaloDBException("Mock Read Exception");
+        }
+
         try {
-            return db.get(key);
-        } catch (HaloDBException e) {
+            int time1 = rand.nextInt(500);
+            System.out.println(String.format("Sleep %d millis before get.", time1));
+            Thread.sleep(time1);
+            byte[] result = db.get(key);
+            int time2 = rand.nextInt(500);
+            System.out.println(String.format("Sleep %d millis after get.", time2));
+            Thread.sleep(time2);
+            return result;
+        } catch (Exception e) {
             e.printStackTrace();
         }
 
