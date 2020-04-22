@@ -27,8 +27,14 @@ checkKeyValueConsistency() {
              }
     }
 
-    event putReq before (byte[] key, byte[] value, int rId):
+    syncBegin event putReqCall before (byte[] key, byte[] value, int rId):
         call(* HaloDBStorageEngine.put(byte[], byte[], int))
+        && args(key, value, rId) {
+            System.out.println("=== PutReq Sync block starts.");
+    }
+
+    syncEnd event putReqExec before (byte[] key, byte[] value, int rId):
+        execution(* HaloDBStorageEngine.put(byte[], byte[], int))
         && args(key, value, rId) {
             Long keyLong = new Long(MopUtils.bytesToLong(key));
             Long valueLong = new Long(MopUtils.bytesToLong(value));
@@ -41,12 +47,17 @@ checkKeyValueConsistency() {
                 pendingPutReq.put(keyLong, valueSet);
             }
             System.out.println(String.format("[putReq#%d] %d,%d", rId, keyLong, valueLong));
+            System.out.println("=== PutReq Sync block ends.");
     }
 
 
-    event putRes after (HaloDBStorageEngine dbEngine, byte[] key, byte[] value, int rId) returning (DBPutResult result):
+    syncBegin event putResExec after () returning (DBPutResult result):
+        execution(DBPutResult HaloDBStorageEngine.put(byte[], byte[], int)) {
+            System.out.println("=== PutRes Sync block starts.");
+    }
+
+    syncEnd event putResCall after (byte[] key, byte[] value, int rId) returning (DBPutResult result):
         call(DBPutResult HaloDBStorageEngine.put(byte[], byte[], int))
-        && target(dbEngine)
         && args(key, value, rId) {
             if (result.success) {
                 long keyLong = MopUtils.bytesToLong(result.key);
@@ -58,11 +69,18 @@ checkKeyValueConsistency() {
             } else {
                 System.out.println(String.format("[putRes#%d] Failed", rId));
             }
+            System.out.println("=== PutRes Sync block ends.");
     }
 
-    event getReq before (HaloDBStorageEngine dbEngine, byte[] key, int rId):
+
+    syncBegin event getReqCall before (byte[] key, int rId):
         call(byte[] HaloDBStorageEngine.get(byte[], int))
-        && target(dbEngine)
+        && args(key, rId) {
+            System.out.println("=== GetReq Sync block starts.");
+    }
+
+    syncEnd event getReqExec before (byte[] key, int rId):
+        execution(byte[] HaloDBStorageEngine.get(byte[], int))
         && args(key, rId) {
             Long keyLong = new Long(MopUtils.bytesToLong(key));
             if (putResponseMap.containsKey(keyLong)) {
@@ -73,18 +91,29 @@ checkKeyValueConsistency() {
             } else {
                 System.out.println(String.format("[getReq#%d] %d not in putResponseMap", rId, keyLong));
             }
-         
+            System.out.println("=== GetReq Sync block end.");
     }
 
-    event getRes after (HaloDBStorageEngine dbEngine, byte[] key, int rId) returning (byte[] result):
+    /*event getResException after (HaloDBStorageEngine dbEngine, byte[] key, int rId) throwing (HaloDBException e):
         call(byte[] HaloDBStorageEngine.get(byte[], int))
         && target(dbEngine)
+        && args(key, rId) {
+            System.out.println(String.format("[getRes#%d] %s", rId, e));
+    }*/
+
+    syncBegin event getResExec after () returning (byte[] result):
+        execution(byte[] HaloDBStorageEngine.get(byte[], int)) {
+            System.out.println("=== GetRes Sync block starts.");
+    }
+
+    syncEnd event getResCall after (byte[] key, int rId) returning (byte[] result):
+        call(byte[] HaloDBStorageEngine.get(byte[], int))
         && args(key, rId) {
             Long keyLong = new Long(MopUtils.bytesToLong(key));
             if (snapshotAtGetReq.containsKey(new Integer(rId))) {
                 if (result == null) {
                     System.out.println(
-                        String.format("[getRes#%d] Get is not Consistent, failed to find an existing key %d!", rId, keyLong));
+                        String.format("[getRes#%d] ERROR: Get is not Consistent, failed to find an existing key %d!", rId, keyLong));
                         return;
                 }
                 
@@ -92,15 +121,10 @@ checkKeyValueConsistency() {
                 Long snapshotValue = new Long(snapshotAtGetReq.get(new Integer(rId)).value);
                 if (!(snapshotValue <= resultValue)) {
                     System.out.println(
-                        String.format("[getRes#%d] For key %d, expected value of sequencer is >= %d but got %d. Get is not Consistent!", rId, keyLong, snapshotValue, resultValue));
+                        String.format("[getRes#%d] ERROR: For key %d, expected value of sequencer is >= %d but got %d. Get is not Consistent!", rId, keyLong, snapshotValue, resultValue));
                     return;
                 }
 
-                if (!(snapshotValue.equals(resultValue) || pendingPutReq.get(keyLong).contains(resultValue))) {
-                    System.out.println(
-                        String.format("[getRes#%d] Incorrect record received in the Get Response!", rId));
-                    return;
-                }
             } else {
                 if (result != null ) {
                     boolean isInPutResponseMap = false;
@@ -120,7 +144,7 @@ checkKeyValueConsistency() {
 
                     if (!(isInPutResponseMap || isInPendingPutReq)) {
                         System.out.println(
-                            String.format("[getRes#%d] Get succeeded for key %d, expected the get to fail but got a success. Get is not Consistent, got a key that does not exist!", rId, keyLong));
+                            String.format("[getRes#%d] ERROR: Get succeeded for key %d, expected the get to fail but got a success. Get is not Consistent, got a key that does not exist!", rId, keyLong));
                         return;
                     }
                 }
@@ -134,6 +158,7 @@ checkKeyValueConsistency() {
                 System.out.println(String.format("[getRes#%d] %d,%d", rId, keyLong, resultValue));
             }
 
+            System.out.println("=== GetRes Sync block ends.");
     }
 
 }

@@ -91,14 +91,14 @@ public class RandomReadWriteTest {
                     // read
                     long id = (long)rand.nextInt(numOfRecords);
                     byte[] key = longToBytes(id);
-                    byte[] result = db.get(key, resId);
-
-                    if (result == null) {
-                        System.out.println("[HaloRead#" + tid + "#" + i + "#" + resId + "] " + "No value for key " +id);
-                    } else {
-                        System.out.println("[HaloRead#" + tid + "#" + i + "#" + resId + "] " + id + "," + bytesToLong(result));
-                    }
-
+                    try {
+                        byte[] result = db.get(key, resId);
+                        if (result == null) {
+                            System.out.println("[HaloRead#" + tid + "#" + i + "#" + resId + "] " + "No value for key " +id);
+                        } else {
+                            System.out.println("[HaloRead#" + tid + "#" + i + "#" + resId + "] " + id + "," + bytesToLong(result));
+                        }
+                    } catch (HaloDBException e) {}
                 } else {
                     // write
                     long id = (long)rand.nextInt(numOfRecords);
