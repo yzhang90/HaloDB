@@ -216,6 +216,7 @@ class HaloDBInternal {
     }
 
     DBPutResult put(byte[] key, byte[] value) throws IOException, HaloDBException {
+        System.out.println("HaloDB internal put.");
         if (key.length > Byte.MAX_VALUE) {
             throw new HaloDBException("key length cannot exceed " + Byte.MAX_VALUE);
         }
@@ -224,7 +225,7 @@ class HaloDBInternal {
         writeLock.lock();
         try {
 
-            byte[] getResult = this.get(key, 1);
+            /*byte[] getResult = this.get(key, 1);
             if (getResult != null && value != null) {
                 long latestWrite = Utils.bytesToLong(getResult);
                 long currentWrite = Utils.bytesToLong(value);
@@ -233,7 +234,7 @@ class HaloDBInternal {
                     System.out.println("Discarded stale write.");
                     return new DBPutResult(true, key, getResult);
                 }
-            }
+            }*/
 
             Record record = new Record(key, value);
             record.setSequenceNumber(getNextSequenceNumber());
@@ -251,6 +252,7 @@ class HaloDBInternal {
     }
 
     byte[] get(byte[] key, int attemptNumber) throws IOException, HaloDBException {
+        System.out.println("HaloDB internal get.");
         if (attemptNumber > maxReadAttempts) {
             logger.error("Tried {} attempts but read failed", attemptNumber-1);
             throw new HaloDBException("Tried " + (attemptNumber-1) + " attempts but failed.");

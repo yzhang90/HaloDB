@@ -16,23 +16,19 @@ public class HaloDBStorageEngine {
 
     public HaloDB db;
     private final long noOfRecords;
-    private final Random rand;
 
     public HaloDBStorageEngine(File dbDirectory, long noOfRecords) {
         this.dbDirectory = dbDirectory;
         this.noOfRecords = noOfRecords;
-        this.rand = new Random(101);
     }
 
-    public DBPutResult put(byte[] key, byte[] value, int rId) {
+    public DBPutResult put(byte[] key, byte[] value, int rId, int sleep1, int sleep2) {
         try {
-            int time1 = rand.nextInt(500);
-            System.out.println(String.format("Sleep %d millis before put.", time1));
-            Thread.sleep(time1);
+            System.out.println(String.format("Sleep %d millis before put.", sleep1));
+            Thread.sleep(sleep1);
             DBPutResult result = db.put(key, value);
-            int time2 = rand.nextInt(500);
-            System.out.println(String.format("Sleep %d millis after put.", time2));
-            Thread.sleep(time2);
+            System.out.println(String.format("Sleep %d millis after put.", sleep2));
+            Thread.sleep(sleep2);
             return result;
         } catch (Exception e) {
             e.printStackTrace();
@@ -41,19 +37,13 @@ public class HaloDBStorageEngine {
         return new DBPutResult(false, null, null);
     }
 
-    public byte[] get(byte[] key, int rId) throws HaloDBException {
-        if (rId % 5 == 0) {
-             throw new HaloDBException("Mock Read Exception");
-        }
-
+    public byte[] get(byte[] key, int rId, int sleep1, int sleep2) throws HaloDBException {
         try {
-            int time1 = rand.nextInt(500);
-            System.out.println(String.format("Sleep %d millis before get.", time1));
-            Thread.sleep(time1);
+            System.out.println(String.format("Sleep %d millis before get.", sleep1));
+            Thread.sleep(sleep1);
             byte[] result = db.get(key);
-            int time2 = rand.nextInt(500);
-            System.out.println(String.format("Sleep %d millis after get.", time2));
-            Thread.sleep(time2);
+            System.out.println(String.format("Sleep %d millis after get.", sleep2));
+            Thread.sleep(sleep2);
             return result;
         } catch (Exception e) {
             e.printStackTrace();
