@@ -19,7 +19,7 @@ import com.oath.halodb.TestUtils;
 
 public class RandomReadWriteTest {
 
-    private static final int round = 20;
+    private static final int round = 100;
     private static final int numOfRecords = 10;
     private static AtomicInteger counter = new AtomicInteger();
     private static AtomicInteger rId = new AtomicInteger(1);
@@ -86,13 +86,15 @@ public class RandomReadWriteTest {
         public void run() {
             for (int i = 0; i < round; i++) {
                 int operation = rand.nextInt(2);
+                long id = (long)rand.nextInt(numOfRecords);
+                int sleep1 = rand.nextInt(500);
+                int sleep2 = rand.nextInt(500);
                 int resId = rId.getAndIncrement();
                 if (operation == 0) {
                     // read
-                    long id = (long)rand.nextInt(numOfRecords);
                     byte[] key = longToBytes(id);
                     try {
-                        byte[] result = db.get(key, resId);
+                        byte[] result = db.get(key, resId, sleep1, sleep2);
                         if (result == null) {
                             System.out.println("[HaloRead#" + tid + "#" + i + "#" + resId + "] " + "No value for key " +id);
                         } else {
@@ -101,12 +103,11 @@ public class RandomReadWriteTest {
                     } catch (HaloDBException e) {}
                 } else {
                     // write
-                    long id = (long)rand.nextInt(numOfRecords);
                     byte[] key = longToBytes(id);
                     long val = (long)counter.getAndIncrement();
                     byte[] value = longToBytes(val);
 
-                    db.put(key, value, resId);
+                    db.put(key, value, resId, sleep1, sleep2);
                     System.out.println("[HaloWrite#" + tid + "#" + i + "#" + resId + "] " + id + "," + val);
                 }
             }
