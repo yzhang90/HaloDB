@@ -27,7 +27,7 @@ public class ChecksumDataTransformTest {
         crc32.update(buffers[0].array(), Record.Header.VERSION_OFFSET, buffers[0].array().length - Record.Header.CHECKSUM_SIZE);
         crc32.update(key);
         crc32.update(value);
-        Record.Header header = new Record.Header( Utils.toSignedIntFromLong(crc32.getValue())
+        Record.Header header = new Record.Header( crc32.getValue()
                                                 , version , (byte)key.length, value.length, sequenceNumber);
         record.setHeader(header);
         return record;
@@ -45,10 +45,14 @@ public class ChecksumDataTransformTest {
     @Test
     public void testSimpleTransform() {
         Record testRecord = generateRandomRecord();
-        Record outRecord = SimpleDataTransformer.simpleTransform(testRecord);
-        Assert.assertEquals(outRecord.getHeader().getCheckSum(), calculateChecksum(outRecord));
+        try {
+            Record outRecord = SimpleDataTransformer.simpleTransform(testRecord);
+            Assert.assertEquals(outRecord.getHeader().getCheckSum(), calculateChecksum(outRecord));
+        }
+        catch(HaloDBException e) {
+             Assert.fail(e.getMessage());
+        }
     }
-
 }
 
 

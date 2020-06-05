@@ -1,0 +1,44 @@
+package mop;
+
+import java.util.*;
+import java.io.*;
+import com.oath.halodb.*;
+import com.oath.halodb.javamop.*;
+
+checkChecksumTransforms() {
+
+    event startTransform before() :
+        execution(* SimpleDataTransformer.simpleTransform(..)) {
+        System.out.println("A Transform on Checksummed-Data was Called");
+    }
+
+    event preComputeChecksumVerification after() :
+        call(* Record.verifyChecksum(..)) && cflowbelow(call(* SimpleDataTransformer.simpleTransform(..))) {
+            System.out.println("Checksum Verification");
+        }
+
+    event compute after() :
+        call(* SimpleDataTransformer.dataComputation(..)) && cflowbelow(call(* SimpleDataTransformer.simpleTransform(..))) {
+            System.out.println("A Computation over the Data was Performed");
+        }
+
+
+    event computeChecksum after() :
+        call(* SimpleDataTransformer.calculateChecksum(..)) && cflowbelow(call(* SimpleDataTransformer.simpleTransform(..))) {
+            System.out.println("Checksum Calculation on Post Computation Data");
+        }
+
+    event endTransform after() :
+        execution(* SimpleDataTransformer.simpleTransform(..)) {
+        System.out.println("A Transform on Checksummed-Data finished Execution");
+    }
+
+
+    ere: ( startTransform preComputeChecksumVerification
+             ((compute computeChecksum) (compute computeChecksum)+)*
+           endTransform )
+
+    @fail {
+        System.err.println("A Transformation was Incorrectly Implemented");
+    }
+}
