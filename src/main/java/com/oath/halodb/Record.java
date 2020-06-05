@@ -23,7 +23,7 @@ public class Record {
         header = new Header(0, Versions.CURRENT_DATA_FILE_VERSION, (byte)key.length, value.length, -1);
     }
 
-    ByteBuffer[] serialize() {
+    public ByteBuffer[] serialize() {
         ByteBuffer headerBuf = serializeHeaderAndComputeChecksum();
         return new ByteBuffer[] {headerBuf, ByteBuffer.wrap(key), ByteBuffer.wrap(value)};
     }
@@ -60,30 +60,30 @@ public class Record {
         return header.getRecordSize();
     }
 
-    void setSequenceNumber(long sequenceNumber) {
+    public void setSequenceNumber(long sequenceNumber) {
         header.sequenceNumber = sequenceNumber;
     }
 
-    long getSequenceNumber() {
+    public long getSequenceNumber() {
         return header.getSequenceNumber();
     }
 
-    void setVersion(int version) {
+    public void setVersion(int version) {
         if (version < 0 || version > 255) {
             throw new IllegalArgumentException("Got version " + version + ". Record version must be in range [0,255]");
         }
         header.version = version;
     }
 
-    int getVersion() {
+    public int getVersion() {
         return header.version;
     }
 
-    Header getHeader() {
+    public Header getHeader() {
         return header;
     }
 
-    void setHeader(Header header) {
+    public void setHeader(Header header) {
         this.header = header;
     }
 
@@ -94,11 +94,12 @@ public class Record {
         return headerBuf;
     }
 
-    boolean verifyChecksum() {
+    public boolean verifyChecksum() {
         ByteBuffer headerBuf = header.serialize();
         long checkSum = computeCheckSum(headerBuf.array());
+        long newCheckSum = header.getCheckSum();
 
-        return checkSum == header.getCheckSum();
+        return checkSum == newCheckSum;
     }
 
     private long computeCheckSum(byte[] header) {
@@ -126,7 +127,7 @@ public class Record {
         return Arrays.equals(getKey(), record.getKey()) && Arrays.equals(getValue(), record.getValue());
     }
 
-    static class Header {
+    public static class Header {
         /**
          * crc              - 4 bytes.
          * version          - 1 byte.
@@ -135,13 +136,13 @@ public class Record {
          * sequence number  - 8 bytes.
          */
         static final int CHECKSUM_OFFSET = 0;
-        static final int VERSION_OFFSET = 4;
+        public static final int VERSION_OFFSET = 4;
         static final int KEY_SIZE_OFFSET = 5;
         static final int VALUE_SIZE_OFFSET = 6;
         static final int SEQUENCE_NUMBER_OFFSET = 10;
 
         static final int HEADER_SIZE = 18;
-        static final int CHECKSUM_SIZE = 4;
+        public static final int CHECKSUM_SIZE = 4;
 
         private long checkSum;
         private int version;
@@ -151,7 +152,7 @@ public class Record {
 
         private int recordSize;
 
-        Header(long checkSum, int version, byte keySize, int valueSize, long sequenceNumber) {
+        public Header(long checkSum, int version, byte keySize, int valueSize, long sequenceNumber) {
             this.checkSum = checkSum;
             this.version = version;
             this.keySize = keySize;
@@ -160,7 +161,7 @@ public class Record {
             recordSize = keySize + valueSize + HEADER_SIZE;
         }
 
-        static Header deserialize(ByteBuffer buffer) {
+        public static Header deserialize(ByteBuffer buffer) {
 
             long checkSum = Utils.toUnsignedIntFromInt(buffer.getInt(CHECKSUM_OFFSET));
             int version = Utils.toUnsignedByte(buffer.get(VERSION_OFFSET));
@@ -172,7 +173,7 @@ public class Record {
         }
 
         // checksum value can be computed only with record key and value. 
-        ByteBuffer serialize() {
+        public ByteBuffer serialize() {
             byte[] header = new byte[HEADER_SIZE];
             ByteBuffer headerBuffer = ByteBuffer.wrap(header);
             headerBuffer.put(VERSION_OFFSET, (byte)version);
@@ -201,15 +202,15 @@ public class Record {
             return recordSize;
         }
 
-        long getSequenceNumber() {
+        public long getSequenceNumber() {
             return sequenceNumber;
         }
 
-        long getCheckSum() {
+        public long getCheckSum() {
             return checkSum;
         }
 
-        int getVersion() {
+        public int getVersion() {
             return version;
         }
     }

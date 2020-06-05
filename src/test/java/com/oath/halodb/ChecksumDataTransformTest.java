@@ -1,5 +1,6 @@
 package com.oath.halodb;
 
+import com.oath.halodb.javamop.SimpleDataTransformer;
 import org.testng.Assert;
 import org.testng.annotations.Test;
 
@@ -26,30 +27,28 @@ public class ChecksumDataTransformTest {
         crc32.update(buffers[0].array(), Record.Header.VERSION_OFFSET, buffers[0].array().length - Record.Header.CHECKSUM_SIZE);
         crc32.update(key);
         crc32.update(value);
-
+        Record.Header header = new Record.Header( Utils.toSignedIntFromLong(crc32.getValue())
+                                                , version , (byte)key.length, value.length, sequenceNumber);
+        record.setHeader(header);
         return record;
     }
 
-    static boolean regenrateHeader(Record record) {
-        byte[] key = record.getKey();
-        byte[] value = record.getValue();
-        int version = record.getVersion();
-        long sequenceNumber = record.getSequenceNumber();
-
-        // regenerate Header
+    private static long calculateChecksum(Record record) {
         ByteBuffer[] buffers = record.serialize();
         CRC32 crc32 = new CRC32();
         crc32.update(buffers[0].array(), Record.Header.VERSION_OFFSET, buffers[0].array().length - Record.Header.CHECKSUM_SIZE);
-        crc32.update(key);
-        crc32.update(value);
-        long checksum = putInt(Record.Header.CHECKSUM_OFFSET, Utils.toSignedIntFromLong(crc32.getValue()));
-        return
+        crc32.update(record.getKey());
+        crc32.update(record.getValue());
+        return crc32.getValue();
     }
 
     @Test
-    public void testChecksumVerification() {
+    public void testSimpleTransform() {
         Record testRecord = generateRandomRecord();
-        Record.Header header =
+        Record outRecord = SimpleDataTransformer.simpleTransform(testRecord);
+        Assert.assertEquals(outRecord.getHeader().getCheckSum(), calculateChecksum(outRecord));
     }
 
 }
+
+
