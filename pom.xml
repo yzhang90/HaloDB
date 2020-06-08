@@ -197,18 +197,6 @@
                         </configuration>
                     </execution>
                 </executions>
-                <dependencies>
-                    <dependency>
-                        <groupId>org.aspectj</groupId>
-                        <artifactId>aspectjtools</artifactId>
-                        <version>${aspectj.version}</version>
-                    </dependency>
-                    <dependency>
-                        <groupId>org.aspectj</groupId>
-                        <artifactId>aspectjweaver</artifactId>
-                        <version>${aspectj.version}</version>
-                    </dependency>
-                </dependencies>
             </plugin>
             <plugin>
                 <groupId>org.codehaus.mojo</groupId>
@@ -250,5 +238,32 @@
             <url>https://api.bintray.com/maven/yahoo/maven/halodb/;publish=1</url>
         </repository>
     </distributionManagement>
+
+    <profiles>
+        <profile>
+            <id>noAspectJ</id>
+            <build>
+                <plugins>
+                    <plugin>
+                        <groupId>org.codehaus.mojo</groupId>
+                        <artifactId>aspectj-maven-plugin</artifactId>
+                        <executions>
+                            <execution>
+                                <phase>none</phase>
+                            </execution>
+                        </executions>
+                    </plugin>
+                    <plugin>
+                        <groupId>org.codehaus.mojo</groupId>
+                        <artifactId>exec-maven-plugin</artifactId>
+                        <version>1.6.0</version>
+                        <configuration>
+                            <skip> True </skip>
+                        </configuration>
+                   </plugin>
+                </plugins>
+            </build>
+        </profile>
+    </profiles>
 
 </project>
