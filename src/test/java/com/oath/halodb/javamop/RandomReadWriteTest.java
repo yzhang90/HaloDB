@@ -19,36 +19,54 @@ import com.oath.halodb.TestUtils;
 
 public class RandomReadWriteTest {
 
-    private static final int round = 100;
+    private static final int round = 10000;
     private static final int numOfRecords = 10;
-    private static AtomicInteger counter = new AtomicInteger();
-    private static AtomicInteger rId = new AtomicInteger(1);
     private String directory = null;
 
     @Test
     public void testReadWrite() throws Exception {
         String testDir = TestUtils.getTestDirectory("RandomReadWriteTest", "testReadWrite");
 
-        HaloDBStorageEngine dbEngine = getTestHaloDBStorageEngine(testDir, numOfRecords);
+        HaloDBStorageEngine dbEngine = createFreshHaloDBStorageEngine(testDir, numOfRecords);
 
         System.out.println("Opened the database.");
 
-        RWThread t1 = new RWThread(dbEngine, 1);
-        RWThread t2 = new RWThread(dbEngine, 2);
-        RWThread t3 = new RWThread(dbEngine, 3);
+        RWThread t1 = new RWThread(dbEngine, 1, round, numOfRecords);
+        RWThread t2 = new RWThread(dbEngine, 2, round, numOfRecords);
+        RWThread t3 = new RWThread(dbEngine, 3, round, numOfRecords);
 
         t1.start();
         t2.start();
         t3.start();
+
+        Thread.sleep(2000);
+        /*t1.pauseExec();
+        t2.pauseExec();
+        t3.pauseExec();
+
+        Thread.sleep(10000);
+        t1.resumeExec();
+        t2.resumeExec();
+        t3.resumeExec();*/
+
+        dummy();
 
         t1.join();
         t2.join();
         t3.join();
 
         dbEngine.close();
+
     }
 
-    HaloDBStorageEngine getTestHaloDBStorageEngine(String directory, int numOfRecords) throws HaloDBException {
+    void dummy() {
+        try {
+            Thread.sleep(2000);
+        } catch (Exception e) {}
+        return;
+    }
+
+    HaloDBStorageEngine createFreshHaloDBStorageEngine(String directory, int numOfRecords) throws HaloDBException {
         this.directory = directory;
         File dir = new File(directory);
         try {
@@ -70,47 +88,4 @@ public class RandomReadWriteTest {
         return Longs.fromByteArray(bytes);
     }
 
-    static class RWThread extends Thread {
-        private final int tid;
-        private final Random rand;
-        private final HaloDBStorageEngine db;
-
-
-        RWThread(HaloDBStorageEngine db, int tid) {
-            this.db = db;
-            this.tid = tid;
-            this.rand = new Random(99 + tid);
-        }
-
-        @Override
-        public void run() {
-            for (int i = 0; i < round; i++) {
-                int operation = rand.nextInt(2);
-                long id = (long)rand.nextInt(numOfRecords);
-                int sleep1 = rand.nextInt(500);
-                int sleep2 = rand.nextInt(500);
-                int resId = rId.getAndIncrement();
-                if (operation == 0) {
-                    // read
-                    byte[] key = longToBytes(id);
-                    try {
-                        byte[] result = db.get(key, resId, sleep1, sleep2);
-                        if (result == null) {
-                            System.out.println("[HaloRead#" + tid + "#" + i + "#" + resId + "] " + "No value for key " +id);
-                        } else {
-                            System.out.println("[HaloRead#" + tid + "#" + i + "#" + resId + "] " + id + "," + bytesToLong(result));
-                        }
-                    } catch (HaloDBException e) {}
-                } else {
-                    // write
-                    byte[] key = longToBytes(id);
-                    long val = (long)counter.getAndIncrement();
-                    byte[] value = longToBytes(val);
-
-                    db.put(key, value, resId, sleep1, sleep2);
-                    System.out.println("[HaloWrite#" + tid + "#" + i + "#" + resId + "] " + id + "," + val);
-                }
-            }
-        }
-    }
 }

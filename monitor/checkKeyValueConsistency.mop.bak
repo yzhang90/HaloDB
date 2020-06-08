@@ -10,19 +10,16 @@ checkKeyValueConsistency() {
     HashMap<Long, MapRecord> putResponseMap = new HashMap<Long, MapRecord>();
     HashMap<Long, HashSet<Long>> pendingPutReq = new HashMap<Long, HashSet<Long>>();
     HashMap<Integer, MapRecord> snapshotAtGetReq = new HashMap<Integer, MapRecord>();
-    ArrayList<RWThread> threads = new ArrayList<RWThread>();
-    HaloDBStorageEngine dbEngine;
 
-    event create_thread after () returning (RWThread t):
-        call(* RWThread.new(..)) {
-            threads.add(t);
-            System.out.println("Create RWThread.");
+    event create_thread after () returning (Thread t):
+        call(* Thread+.new(..)) {
+            System.out.println("Create Thread.");
+
     }
 
     event monitor_init after (HaloDBStorageEngine dbEngine):
         call(* HaloDBStorageEngine.open())
         && target(dbEngine) {
-            this.dbEngine = dbEngine;
             try {
                 HaloDBIterator iterator = dbEngine.db.newIterator();
                 while (iterator.hasNext()) {
@@ -37,12 +34,12 @@ checkKeyValueConsistency() {
     }
 
     syncBegin event putReqCall before ():
-        call(* HaloDBStorageEngine.put(byte[], byte[], int, int, int, int)) {
+        call(* HaloDBStorageEngine.put(byte[], byte[], int, int, int)) {
             System.out.println("=== PutReq Sync block starts.");
     }
 
     syncEnd event putReqExec before (byte[] key, byte[] value, int rId):
-        execution(* HaloDBStorageEngine.put(byte[], byte[], int, int, int, int))
+        execution(* HaloDBStorageEngine.put(byte[], byte[], int, int, int))
         && args(key, value, rId, ..) {
             Long keyLong = new Long(MopUtils.bytesToLong(key));
             Long valueLong = new Long(MopUtils.bytesToLong(value));
@@ -60,12 +57,12 @@ checkKeyValueConsistency() {
 
 
     syncBegin event putResExec after () returning (DBPutResult result):
-        execution(DBPutResult HaloDBStorageEngine.put(byte[], byte[], int, int, int, int)) {
+        execution(DBPutResult HaloDBStorageEngine.put(byte[], byte[], int, int, int)) {
             System.out.println("=== PutRes Sync block starts.");
     }
 
     syncEnd event putResCall after (byte[] key, byte[] value, int rId) returning (DBPutResult result):
-        call(DBPutResult HaloDBStorageEngine.put(byte[], byte[], int, int, int, int))
+        call(DBPutResult HaloDBStorageEngine.put(byte[], byte[], int, int, int))
         && args(key, value, rId, ..) {
             if (result.success) {
                 long keyLong = MopUtils.bytesToLong(result.key);
@@ -173,39 +170,6 @@ checkKeyValueConsistency() {
 
                 System.out.println("=== GetRes Sync block ends.");
             }
-    }
-
-    event snapshot_Before before():
-        call(* RandomReadWriteTest.dummy()) {
-          for (int i = 0; i < threads.size(); i++) {
-              RWThread t = threads.get(i);
-              t.pauseExec();
-          }
-          try {
-              dbEngine.db.pauseCompaction();
-          } catch (Exception e) {}
-    }
-
-    event snapshot_After after():
-        call(* RandomReadWriteTest.dummy()) {
-            try{
-            HaloDBIterator iterator = dbEngine.db.newIterator();
-            while (iterator.hasNext()) {
-                Record record = iterator.next();
-                long key = MopUtils.bytesToLong(record.getKey());
-                long value = MopUtils.bytesToLong(record.getValue());
-                System.out.println(String.format("Disk: %d, %d", key, value));
-            }
-            for(MapRecord r : putResponseMap.values()) {
-                System.out.println(String.format("Memory: %d, %d", r.key, r.value));
-            }
-            for (int i = 0; i < threads.size(); i++) {
-                  RWThread t = threads.get(i);
-                  t.resumeExec();
-            }
-            dbEngine.db.resumeCompaction();
-
-            } catch (Exception e) {}
     }
 
     event testEnd after():
