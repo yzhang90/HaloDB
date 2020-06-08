@@ -22,13 +22,14 @@ public class HaloDBStorageEngine {
         this.noOfRecords = noOfRecords;
     }
 
-    public DBPutResult put(byte[] key, byte[] value, int rId, int sleep1, int sleep2) {
+    public DBPutResult put(byte[] key, byte[] value, int rId,
+                           int sleepBefore, int sleepMiddle, int sleepAfter) {
         try {
-            System.out.println(String.format("Sleep %d millis before put.", sleep1));
-            Thread.sleep(sleep1);
-            DBPutResult result = db.put(key, value);
-            System.out.println(String.format("Sleep %d millis after put.", sleep2));
-            Thread.sleep(sleep2);
+            System.out.println(String.format("Sleep %d millis before put.", sleepBefore));
+            Thread.sleep(sleepBefore);
+            DBPutResult result = db.put(key, value, sleepMiddle);
+            System.out.println(String.format("Sleep %d millis after put.", sleepAfter));
+            Thread.sleep(sleepAfter);
             return result;
         } catch (Exception e) {
             e.printStackTrace();
@@ -37,13 +38,13 @@ public class HaloDBStorageEngine {
         return new DBPutResult(false, null, null);
     }
 
-    public byte[] get(byte[] key, int rId, int sleep1, int sleep2) throws HaloDBException {
+    public byte[] get(byte[] key, int rId, int sleepBefore, int sleepAfter) throws HaloDBException {
         try {
-            System.out.println(String.format("Sleep %d millis before get.", sleep1));
-            Thread.sleep(sleep1);
+            System.out.println(String.format("Sleep %d millis before get.", sleepBefore));
+            Thread.sleep(sleepBefore);
             byte[] result = db.get(key);
-            System.out.println(String.format("Sleep %d millis after get.", sleep2));
-            Thread.sleep(sleep2);
+            System.out.println(String.format("Sleep %d millis after get.", sleepAfter));
+            Thread.sleep(sleepAfter);
             return result;
         } catch (Exception e) {
             e.printStackTrace();

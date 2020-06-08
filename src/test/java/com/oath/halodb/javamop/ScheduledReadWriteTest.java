@@ -78,7 +78,7 @@ public class ScheduledReadWriteTest {
             byte[] key = longToBytes(0);
             byte[] value = longToBytes(1);
             int resId = rId.getAndIncrement(); 
-            db.put(key, value, resId, 500, 0);
+            db.put(key, value, resId, 0, 500, 0);
             System.out.println(String.format("[HaloWrite#%d#%d] 0, 1", this.tid, resId));
         }
     }
@@ -98,7 +98,7 @@ public class ScheduledReadWriteTest {
             byte[] key = longToBytes(0);
             byte[] value = longToBytes(2);
             int resId = rId.getAndIncrement();
-            db.put(key, value, resId, 0, 0);
+            db.put(key, value, resId, 0, 0, 0);
             System.out.println(String.format("[HaloWrite#%d#%d] 0, 2", this.tid, resId));
             resId = rId.getAndIncrement();
             try {
