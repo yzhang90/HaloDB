@@ -25,11 +25,11 @@ public class HaloDBStorageEngine {
     public DBPutResult put(byte[] key, byte[] value, int rId,
                            int sleepBefore, int sleepMiddle, int sleepAfter) {
         try {
-            System.out.println(String.format("Sleep %d millis before put.", sleepBefore));
-            Thread.sleep(sleepBefore);
+            //System.out.println(String.format("Sleep %d millis before put.", sleepBefore));
+            //Thread.sleep(sleepBefore);
             DBPutResult result = db.put(key, value, sleepMiddle);
-            System.out.println(String.format("Sleep %d millis after put.", sleepAfter));
-            Thread.sleep(sleepAfter);
+            //System.out.println(String.format("Sleep %d millis after put.", sleepAfter));
+            //Thread.sleep(sleepAfter);
             return result;
         } catch (Exception e) {
             e.printStackTrace();
@@ -38,13 +38,17 @@ public class HaloDBStorageEngine {
         return new DBPutResult(false, null, null);
     }
 
+    public DBPutResult put(byte[] key) {
+        return put(key, key, 0, 0, 0, 0);
+    }
+
     public byte[] get(byte[] key, int rId, int sleepBefore, int sleepAfter) throws HaloDBException {
         try {
-            System.out.println(String.format("Sleep %d millis before get.", sleepBefore));
-            Thread.sleep(sleepBefore);
+            //System.out.println(String.format("Sleep %d millis before get.", sleepBefore));
+            //Thread.sleep(sleepBefore);
             byte[] result = db.get(key);
-            System.out.println(String.format("Sleep %d millis after get.", sleepAfter));
-            Thread.sleep(sleepAfter);
+            //System.out.println(String.format("Sleep %d millis after get.", sleepAfter));
+            //Thread.sleep(sleepAfter);
             return result;
         } catch (Exception e) {
             e.printStackTrace();
@@ -65,7 +69,7 @@ public class HaloDBStorageEngine {
         HaloDBOptions opts = new HaloDBOptions();
         opts.setMaxFileSize(1024*1024*1024);
         opts.setCompactionThresholdPerFile(0.50);
-        opts.setFlushDataSizeBytes(10 * 1024 * 1024);
+        opts.setFlushDataSizeBytes(1 * 1024 * 1024 * 1024);
         opts.setNumberOfRecords(Ints.checkedCast(2 * noOfRecords));
         opts.setCompactionJobRate(135 * 1024 * 1024);
         opts.setUseMemoryPool(true);

@@ -18,9 +18,9 @@ import java.util.Random;
 import com.oath.halodb.HaloDBException;
 import com.oath.halodb.TestUtils;
 
-public class RandomReadWriteTest {
+public class RandomReadTest {
 
-    private static final int round = 50_000_000;
+    private static final int round = 100_000_000;
     private static final int numOfRecords = 1_000_000;
 
     private String directory = null;
@@ -30,11 +30,12 @@ public class RandomReadWriteTest {
 
     @Test
     public void testReadWrite() throws Exception {
+
         Runtime rt = Runtime.getRuntime();
 
         long memoryBefore = rt.totalMemory() - rt.freeMemory();
 
-        String testDir = TestUtils.getTestDirectory("RandomReadWriteTest", "testReadWrite");
+        String testDir = TestUtils.getTestDirectory("RandomReadTest", "testRead");
 
         HaloDBStorageEngine dbEngine = createFreshHaloDBStorageEngine(testDir, numOfRecords);
 
@@ -44,49 +45,30 @@ public class RandomReadWriteTest {
 
         System.out.println("Initialized database.");
 
+        dummy();
+
         long start = System.currentTimeMillis();
 
-        RWThread t1 = new RWThread(dbEngine, 1, round, numOfRecords);
-        RWThread t2 = new RWThread(dbEngine, 2, round, numOfRecords);
-        //RWThread t3 = new RWThread(dbEngine, 3, round, numOfRecords);
+        RThread t1 = new RThread(dbEngine, 1, round, numOfRecords);
+        RThread t2 = new RThread(dbEngine, 2, round, numOfRecords);
 
         t1.start();
         t2.start();
-        //t3.start();
-
-        /*Thread.sleep(2000);
-        t1.pauseExec();
-        t2.pauseExec();
-        t3.pauseExec();
-
-        Thread.sleep(10000);
-        t1.resumeExec();
-        t2.resumeExec();
-        t3.resumeExec();
-
-        dummy();*/
 
         t1.join();
         t2.join();
-        //t3.join();
 
         long end = System.currentTimeMillis();
         long time = (end - start) / 1000;
-        System.out.println("Completed rw in " + time);
+        System.out.println("Completed r in " + time);
 
         long memoryAfter = rt.totalMemory() - rt.freeMemory();
         double memory = (memoryAfter - memoryBefore) / (1024*1024);
         System.out.printf("Memory usage: %f mb\n", memory);
 
+
         dbEngine.close();
 
-    }
-
-    void dummy() {
-        try {
-            Thread.sleep(2000);
-        } catch (Exception e) {}
-        return;
     }
 
     HaloDBStorageEngine createFreshHaloDBStorageEngine(String directory, int numOfRecords) throws HaloDBException {
@@ -109,7 +91,8 @@ public class RandomReadWriteTest {
             byte[] key = longToBytes(i);
             byte[] seqBytes = longToBytes(0);
             byte[] payload = randomDataGenerator.getData(1024);
-            ByteArrayOutputStream outputStream = new ByteArrayOutputStream();
+            rand.nextBytes(payload);
+            ByteArrayOutputStream outputStream = new ByteArrayOutputStream( );
             try {
                 outputStream.write(payload);
                 outputStream.write(seqBytes);
@@ -118,10 +101,14 @@ public class RandomReadWriteTest {
 
             db.put(key, value, i, 0, 0, 0);
 
-            if (i % 100_000 == 0) {
+            /*if (i % 10_000 == 0) {
                 System.out.printf("Wrote %d records\n", i);
-            }
+            }*/
         }
+
+    }
+
+    private void dummy() {
 
     }
 

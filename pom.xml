@@ -150,7 +150,7 @@
                             <value>com.oath.halodb.TestListener</value>
                         </property>
                     </properties>
-                    <argLine>-Xms2G -Xmx2G</argLine>
+                    <argLine>-Xms2G -Xmx20G</argLine>
                 </configuration>
             </plugin>
 
