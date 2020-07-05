@@ -125,6 +125,7 @@ spec GetConsistency observes monitor_Init, eGetResp, eGetReq, ePutResp, ePutReq 
 
             // remove the snapshot of the sqr for the key
             snapshotAtGetReq -= (getResp.rId);
+            getReqIds[getRespRecord.key] -= (getResp.rId);
         }
     }
 
