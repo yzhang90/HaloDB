@@ -25,6 +25,7 @@ import java.nio.channels.FileLock;
 import java.nio.channels.OverlappingFileLockException;
 import java.nio.file.StandardOpenOption;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.Comparator;
 import java.util.HashMap;
 import java.util.HashSet;
@@ -216,7 +217,6 @@ class HaloDBInternal {
     }
 
     DBPutResult put(byte[] key, byte[] value, int sleep) throws IOException, HaloDBException {
-        System.out.println("HaloDB internal put.");
         if (key.length > Byte.MAX_VALUE) {
             throw new HaloDBException("key length cannot exceed " + Byte.MAX_VALUE);
         }
@@ -224,28 +224,19 @@ class HaloDBInternal {
         //TODO: more fine-grained locking is possible. 
         writeLock.lock();
         try {
-
             byte[] getResult = this.get(key, 1);
             if (getResult != null && value != null) {
-                long latestWrite = Utils.bytesToLong(getResult);
-                long currentWrite = Utils.bytesToLong(value);
-                if (latestWrite >= currentWrite) {
+                byte[] latestSeqBytes = Arrays.copyOfRange(getResult, 1024, getResult.length);
+                byte[] valueSeqBytes = Arrays.copyOfRange(value, 1024, value.length);
+                long latestSeq = Utils.bytesToLong(latestSeqBytes);
+                long currentSeq = Utils.bytesToLong(valueSeqBytes);
+                if (latestSeq >= currentSeq) {
                     // Discard stale write
-                    System.out.println("Discarded stale write.");
+                    // System.out.println("Discarded stale write.");
                     return new DBPutResult(true, key, getResult);
                 }
             }
 
-        } finally {
-            writeLock.unlock();
-        }
-
-        try {
-            Thread.sleep(sleep);
-        } catch (Exception e) {}
-
-        writeLock.lock();
-        try {
             Record record = new Record(key, value);
             record.setSequenceNumber(getNextSequenceNumber());
             record.setVersion(Versions.CURRENT_DATA_FILE_VERSION);
@@ -262,7 +253,7 @@ class HaloDBInternal {
     }
 
     byte[] get(byte[] key, int attemptNumber) throws IOException, HaloDBException {
-        System.out.println("HaloDB internal get.");
+        // System.out.println("HaloDB internal get.");
         if (attemptNumber > maxReadAttempts) {
             logger.error("Tried {} attempts but read failed", attemptNumber-1);
             throw new HaloDBException("Tried " + (attemptNumber-1) + " attempts but failed.");
