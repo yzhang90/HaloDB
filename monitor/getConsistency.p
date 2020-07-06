@@ -49,12 +49,14 @@ spec GetConsistency observes monitor_Init, eGetResp, eGetReq, ePutResp, ePutReq 
         putRecord = putReq.record;
 
         if(putRecord.key in putResponseMap) {
-            if(putRecord.sqr >= putResponseMap[putRecord.key].sqr){
+            if(putRecord.sqr <= putResponseMap[putRecord.key].sqr){
                 // the put should fail!
                 expectedPutReqSuccess[putReq.rId] = false;
             } else {
                 expectedPutReqSuccess[putReq.rId] = true;
             }
+        } else {
+            expectedPutReqSuccess[putReq.rId] = true;
         }
 
         // add to the set of global pending puts
