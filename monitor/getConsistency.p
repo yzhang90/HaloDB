@@ -95,7 +95,7 @@ spec GetConsistency observes monitor_Init, eGetResp, eGetReq, ePutResp, ePutReq 
         else
             concurrentPuts = default(set[tRecord]);
 
-        if(getReq.key in currentDBState){
+        if(getReq.key in putResponseMap){
             snapshotAtGetReq[getReq.rId] = (lastSuccessfulPut = putResponseMap[getReq.key], pendingPuts = concurrentPuts);
         }else{
             snapshotAtGetReq[getReq.rId] = (lastSuccessfulPut = GetEmptyRecord(getReq.key), pendingPuts = concurrentPuts);
