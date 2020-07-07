@@ -68,10 +68,12 @@ getConsistency() {
 
             if(getReqIds.containsKey(keyLong)) {
                 Set<Integer> reqIds = getReqIds.get(keyLong);
+                // snapshotAtGetReq may be modified during the for loop!
                 for(Integer rid : reqIds) {
                     PutResponseWithPending prwp = snapshotAtGetReq.get(rid);
-                    Set<MonitorRecord> ps = prwp.pendingRecords;
-                    ps.add(pr);
+                    if(prwp != null) {
+                        prwp.pendingRecords.add(pr);
+                    }
                 }
             }
     }
