@@ -18,7 +18,7 @@ public class RWThread extends Thread {
     private final int round;
     private final int numOfRecords;
     private static AtomicInteger counter = new AtomicInteger(1);
-    private static AtomicInteger rId = new AtomicInteger(40_000_000);
+    private static AtomicInteger rId = new AtomicInteger(600_000_000);
 
     public RWThread(HaloDBStorageEngine db, int tid, int round, int numOfRecords) {
         this.db = db;
