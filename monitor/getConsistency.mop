@@ -1,6 +1,8 @@
 package mop;
 
 import java.io.*;
+import java.nio.ByteBuffer;
+import java.nio.channels.FileChannel;
 import java.util.*;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.zip.CRC32;
@@ -13,8 +15,15 @@ getConsistency() {
     Map<Integer, Boolean> expectedPutReqSuccess = new ConcurrentHashMap<Integer, Boolean>();
     Map<Long, PutResponseWithPending> putWithPendingMap = new ConcurrentHashMap<Long, PutResponseWithPending>();
     Map<Long, Set<Integer>> getReqIds = new ConcurrentHashMap<Long, Set<Integer>>();
+    Map<Long, Long> diskWrite = new ConcurrentHashMap<Long, Long>();
+    ArrayList<RWThread> threads = new ArrayList<RWThread>();
     HaloDBStorageEngine dbEngine;
 
+    unsynced event create_thread after () returning (RWThread t):
+        call(* RWThread.new(..)) {
+            threads.add(t);
+            System.out.println("Create RWThread.");
+    }
 
     unsynced event monitor_init after (HaloDBStorageEngine dbEngine):
         call(* HaloDBStorageEngine.open())
@@ -92,7 +101,7 @@ getConsistency() {
 
             if (result.success) {
                 if(!expectedPutReqSuccess.get(rId)) {
-                    System.out.println("put is expected to fail but it actually succeed.");
+                    //System.out.println("put is expected to fail but it actually succeed.");
                 }
 
                 prwp.lastSuccessfulPut = mr;
@@ -100,6 +109,7 @@ getConsistency() {
                 System.out.println(String.format("[putRes#%d] Failed", rId));
             }
 
+            expectedPutReqSuccess.remove(rId);
             prwp.pendingRecords.remove(mr);
     }
 
@@ -151,13 +161,57 @@ getConsistency() {
                  // make sure response is valid
                  if (! ((prwp.lastSuccessfulPut != null && prwp.lastSuccessfulPut.equals(mr)) ||
                         prwp.pendingRecords.contains(mr))) {
-                     System.out.println("Incorrect response received in Get response");
+                     // System.out.println("Incorrect response received in Get response");
                  }
             }
 
             // remove snapshot delete id from getReqIds first
             getReqIds.get(keyLong).remove(rId);
             snapshotAtGetReq.remove(rId);
+    }
+
+    unsynced event channelWrite after (ByteBuffer[] buffers):
+        cflowbelow(call(* HaloDBFile.writeToChannel(..)))
+        && call(* FileChannel.write(ByteBuffer[]))
+        && args(buffers) {
+            diskWrite.put(MopUtils.bytesToLong(buffers[1].array()), MopUtils.computeChecksum(buffers[2].array()));
+    }
+
+
+    event snapshot_Before before():
+        call(* RandomReadWriteTest.dummy()) {
+            for (int i = 0; i < threads.size(); i++) {
+                RWThread t = threads.get(i);
+                t.pauseExec();
+            }
+            try {
+                dbEngine.db.pauseCompaction();
+            } catch (Exception e) {}
+    }
+
+
+    event snapshot_After after():
+        call(* RandomReadWriteTest.dummy()) {
+            try{
+                /*HaloDBIterator iterator = dbEngine.db.newIterator();
+                while (iterator.hasNext()) {
+                    Record record = iterator.next();
+                    long key = MopUtils.bytesToLong(record.getKey());
+                    long value = MopUtils.bytesToLong(record.getValue());
+                    System.out.println(String.format("Disk: %d, %d", key, value));
+                }*/
+                for (Map.Entry<Long, Long> entry : diskWrite.entrySet()) {
+                    System.out.println(String.format("Disk: %d, %d", entry.getKey(), entry.getValue()));
+                }
+                for (PutResponseWithPending prwp : putWithPendingMap.values()) {
+                    System.out.println(String.format("Memory: %d, %d", prwp.lastSuccessfulPut.key, prwp.lastSuccessfulPut.checksum));
+                }
+                for (int i = 0; i < threads.size(); i++) {
+                    RWThread t = threads.get(i);
+                    t.resumeExec();
+                }
+                dbEngine.db.resumeCompaction();
+            } catch (Exception e) {}
     }
 
 

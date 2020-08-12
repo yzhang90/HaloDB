@@ -233,7 +233,7 @@ class HaloDBInternal {
                 if (latestSeq >= currentSeq) {
                     // Discard stale write
                     // System.out.println("Discarded stale write.");
-                    return new DBPutResult(true, key, getResult);
+                    return new DBPutResult(false, key, getResult);
                 }
             }
 

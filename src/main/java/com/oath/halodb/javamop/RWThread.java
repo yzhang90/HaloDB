@@ -19,6 +19,8 @@ public class RWThread extends Thread {
     private final int numOfRecords;
     private static AtomicInteger counter = new AtomicInteger(1);
     private static AtomicInteger rId = new AtomicInteger(40_000_000);
+    public volatile boolean isPause;
+    private boolean isPauseOld;
 
     public RWThread(HaloDBStorageEngine db, int tid, int round, int numOfRecords) {
         this.db = db;
@@ -27,19 +29,35 @@ public class RWThread extends Thread {
         this.numOfRecords = numOfRecords;
         this.rand = new Random(99 + tid);
         this.randomDataGenerator = new RandomDataGenerator(99 + tid);
+        this.isPause = false;
+        this.isPauseOld = true;
     }
 
     @Override
     public void run() {
         for (int i = 0; i < round; i++) {
-            // System.out.println(String.format("Thread#%d is running.", tid));
+            try {
+                while (isPause) {
+                    Thread.sleep(50);
+                    if (isPauseOld ==  false) {
+                        isPauseOld = true;
+                        System.out.println(String.format("Thread#%d is paused.", tid));
+                    }
+                }
+            } catch (Exception e) {}
+
+            if(isPause == false && isPauseOld == true) {
+                System.out.println(String.format("Thread#%d is running.", tid));
+            }
+            isPauseOld = false;
+
             int operation = rand.nextInt(2);
             long id = (long)rand.nextInt(numOfRecords);
             // int sleep1 = rand.nextInt(500);
             // int sleep2 = rand.nextInt(500);
             // int sleep3 = rand.nextInt(500);
             int resId = rId.getAndIncrement();
-            if(resId % 1_000_000 == 0) {
+            if(resId % 10_000 == 0) {
                 System.out.printf("Processed %d requests\n", resId);
             }
             if (operation == 0) {
@@ -72,6 +90,15 @@ public class RWThread extends Thread {
                 // System.out.println("[HaloWrite#" + tid + "#" + i + "#" + resId + "] " + id + "," + val);
             }
         }
+    }
+
+
+    public void pauseExec() {
+        isPause = true;
+    }
+
+    public void resumeExec() {
+        isPause = false;
     }
 
     static byte[] longToBytes(long value) {

@@ -20,16 +20,14 @@ import com.oath.halodb.TestUtils;
 
 public class RandomReadWriteTest {
 
-    private static final int round = 50_000_000;
-    private static final int numOfRecords = 1_000_000;
+    private static final int round = 100_000;
+    private static final int numOfRecords = 10;
     private String directory = null;
     private static final int seed = 133;
     private static RandomDataGenerator randomDataGenerator = new RandomDataGenerator(seed);
 
     @Test
     public void testReadWrite() throws Exception {
-        Runtime rt = Runtime.getRuntime();
-        long memoryBefore = rt.totalMemory() - rt.freeMemory();
 
         String testDir = TestUtils.getTestDirectory("RandomReadWriteTest", "testReadWrite");
 
@@ -46,20 +44,25 @@ public class RandomReadWriteTest {
         t1.start();
         t2.start();
 
+        Thread.sleep(2000);
+
+        dummy();
+
         t1.join();
         t2.join();
-
-        long end = System.currentTimeMillis();
-        long time = (end - start) / 1000;
-        System.out.println("Completed rw in " + time);
-
-        long memoryAfter = rt.totalMemory() - rt.freeMemory();
-        double memory = (memoryAfter - memoryBefore) / (1024*1024);
-        System.out.printf("Memory usage: %f mb\n", memory);
 
         dbEngine.close();
 
     }
+
+
+    void dummy() {
+        try {
+            Thread.sleep(2000);
+        } catch (Exception e) {}
+        return;
+    }
+
 
 
     HaloDBStorageEngine createFreshHaloDBStorageEngine(String directory, int numOfRecords) throws HaloDBException {
