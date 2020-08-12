@@ -10,12 +10,14 @@ import com.oath.halodb.*;
 import com.oath.halodb.javamop.*;
 
 getConsistency() {
-
+    // see getConsistency.p
     Map<Integer, PutResponseWithPending> snapshotAtGetReq = new ConcurrentHashMap<Integer, PutResponseWithPending>();
     Map<Integer, Boolean> expectedPutReqSuccess = new ConcurrentHashMap<Integer, Boolean>();
     Map<Long, PutResponseWithPending> putWithPendingMap = new ConcurrentHashMap<Long, PutResponseWithPending>();
     Map<Long, Set<Integer>> getReqIds = new ConcurrentHashMap<Long, Set<Integer>>();
+    // map to store the actual writes to the disk
     Map<Long, Long> diskWrite = new ConcurrentHashMap<Long, Long>();
+    // list to store all the testing threads
     ArrayList<RWThread> threads = new ArrayList<RWThread>();
     HaloDBStorageEngine dbEngine;
 
@@ -29,6 +31,7 @@ getConsistency() {
         call(* HaloDBStorageEngine.open())
         && target(dbEngine) {
             this.dbEngine = dbEngine;
+            // initialize the putResponse map
             try {
                 HaloDBIterator iterator = dbEngine.db.newIterator();
                 while (iterator.hasNext()) {
@@ -101,7 +104,7 @@ getConsistency() {
 
             if (result.success) {
                 if(!expectedPutReqSuccess.get(rId)) {
-                    //System.out.println("put is expected to fail but it actually succeed.");
+                    System.out.println("put is expected to fail but it actually succeed.");
                 }
 
                 prwp.lastSuccessfulPut = mr;
@@ -161,7 +164,7 @@ getConsistency() {
                  // make sure response is valid
                  if (! ((prwp.lastSuccessfulPut != null && prwp.lastSuccessfulPut.equals(mr)) ||
                         prwp.pendingRecords.contains(mr))) {
-                     // System.out.println("Incorrect response received in Get response");
+                     System.out.println("Incorrect response received in Get response");
                  }
             }
 
@@ -170,6 +173,8 @@ getConsistency() {
             snapshotAtGetReq.remove(rId);
     }
 
+    // only instruments the FileChannel.write in the HaloDBFile.writeToChannel function because
+    // FileChannel.write is also used to write meta data onto the disk.
     unsynced event channelWrite after (ByteBuffer[] buffers):
         cflowbelow(call(* HaloDBFile.writeToChannel(..)))
         && call(* FileChannel.write(ByteBuffer[]))
@@ -182,6 +187,7 @@ getConsistency() {
         call(* RandomReadWriteTest.dummy()) {
             for (int i = 0; i < threads.size(); i++) {
                 RWThread t = threads.get(i);
+                // we assume that there is a pause function to pause the execution of the thread
                 t.pauseExec();
             }
             try {
