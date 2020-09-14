@@ -224,7 +224,7 @@ class HaloDBInternal {
         //TODO: more fine-grained locking is possible. 
         writeLock.lock();
         try {
-            byte[] getResult = this.get(key, 1);
+            /*byte[] getResult = this.get(key, 1);
             if (getResult != null && value != null) {
                 byte[] latestSeqBytes = Arrays.copyOfRange(getResult, 1024, getResult.length);
                 byte[] valueSeqBytes = Arrays.copyOfRange(value, 1024, value.length);
@@ -235,7 +235,7 @@ class HaloDBInternal {
                     System.out.println("Discarded stale write.");
                     return new DBPutResult(false, key, getResult);
                 }
-            }
+            }*/
 
             Record record = new Record(key, value);
             record.setSequenceNumber(getNextSequenceNumber());
