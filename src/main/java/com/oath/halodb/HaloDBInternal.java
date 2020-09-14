@@ -236,7 +236,16 @@ class HaloDBInternal {
                     return new DBPutResult(false, key, getResult);
                 }
             }
+        } finally {
+            writeLock.unlock();
+        }
 
+        try {
+            Thread.sleep(sleep);
+        } catch (Exception e) {}
+
+        writeLock.lock();
+        try {
             Record record = new Record(key, value);
             record.setSequenceNumber(getNextSequenceNumber());
             record.setVersion(Versions.CURRENT_DATA_FILE_VERSION);

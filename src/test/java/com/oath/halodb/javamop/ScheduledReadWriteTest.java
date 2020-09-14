@@ -7,6 +7,7 @@ import org.testng.annotations.Test;
 
 import java.io.File;
 import java.io.IOException;
+import java.io.ByteArrayOutputStream;
 import java.lang.*;
 import java.util.Arrays;
 import java.util.concurrent.atomic.AtomicInteger;
@@ -14,6 +15,7 @@ import java.util.Map;
 import java.util.HashMap;
 import java.util.Random;
 
+import com.oath.halodb.javamop.RandomDataGenerator;
 import com.oath.halodb.HaloDBException;
 import com.oath.halodb.TestUtils;
 
@@ -25,7 +27,7 @@ public class ScheduledReadWriteTest {
 
     @Test
     public void testReadWrite() throws Exception {
-        String testDir = TestUtils.getTestDirectory("RandomReadWriteTest", "testReadWrite");
+        String testDir = TestUtils.getTestDirectory("ScheduledReadWriteTest", "testReadWrite");
 
         HaloDBStorageEngine dbEngine = getTestHaloDBStorageEngine(testDir, numOfRecords);
 
@@ -66,40 +68,60 @@ public class ScheduledReadWriteTest {
     class WThread extends Thread {
         private final int tid;
         private final HaloDBStorageEngine db;
-
+        private final RandomDataGenerator randomDataGenerator;
 
         WThread(HaloDBStorageEngine db, int tid) {
             this.db = db;
             this.tid = tid;
+            this.randomDataGenerator = new RandomDataGenerator(99 + tid);
         }
 
         @Override
         public void run() {
+            int resId = rId.getAndIncrement();
+
             byte[] key = longToBytes(0);
-            byte[] value = longToBytes(1);
-            int resId = rId.getAndIncrement(); 
+            byte[] seqBytes = longToBytes(1);
+            byte[] payload = randomDataGenerator.getData(1024);
+            ByteArrayOutputStream outputStream = new ByteArrayOutputStream();
+            try {
+                outputStream.write(payload);
+                outputStream.write(seqBytes);
+            } catch (Exception e) {}
+            byte[] value = outputStream.toByteArray();
             db.put(key, value, resId, 0, 500, 0);
-            System.out.println(String.format("[HaloWrite#%d#%d] 0, 1", this.tid, resId));
+            System.out.println(String.format("[HaloWrite#%d#%d] 0, seq: 1, value: %d", this.tid, resId, bytesToLong(value)));
         }
     }
 
     class WRThread extends Thread {
         private final int tid;
         private final HaloDBStorageEngine db;
+        private final RandomDataGenerator randomDataGenerator;
 
 
         WRThread(HaloDBStorageEngine db, int tid) {
             this.db = db;
             this.tid = tid;
+            this.randomDataGenerator = new RandomDataGenerator(99 + tid);
         }
 
         @Override
         public void run() {
-            byte[] key = longToBytes(0);
-            byte[] value = longToBytes(2);
             int resId = rId.getAndIncrement();
-            db.put(key, value, resId, 0, 0, 0);
-            System.out.println(String.format("[HaloWrite#%d#%d] 0, 2", this.tid, resId));
+
+            byte[] key = longToBytes(0);
+            byte[] seqBytes = longToBytes(2);
+            byte[] payload = randomDataGenerator.getData(1024);
+            ByteArrayOutputStream outputStream = new ByteArrayOutputStream();
+            try {
+                outputStream.write(payload);
+                outputStream.write(seqBytes);
+            } catch (Exception e) {}
+            byte[] value = outputStream.toByteArray();
+
+            db.put(key, value, resId, 10, 0, 0);
+            System.out.println(String.format("[HaloWrite#%d#%d] 0, seq: 2, value: %d", this.tid, resId, bytesToLong(value)));
             resId = rId.getAndIncrement();
             try {
                 byte[] result = db.get(key, resId, 1000, 0);
@@ -107,5 +129,4 @@ public class ScheduledReadWriteTest {
             } catch (Exception e) {}
         }
     }
-
 }
