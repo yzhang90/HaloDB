@@ -232,7 +232,7 @@ class HaloDBInternal {
                 long currentSeq = Utils.bytesToLong(valueSeqBytes);
                 if (latestSeq >= currentSeq) {
                     // Discard stale write
-                    // System.out.println("Discarded stale write.");
+                    System.out.println("Discarded stale write.");
                     return new DBPutResult(false, key, getResult);
                 }
             }

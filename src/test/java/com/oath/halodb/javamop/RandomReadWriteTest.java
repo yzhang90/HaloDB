@@ -20,7 +20,7 @@ import com.oath.halodb.TestUtils;
 
 public class RandomReadWriteTest {
 
-    private static final int round = 100_000;
+    private static final int round = 1_000;
     private static final int numOfRecords = 10;
     private String directory = null;
     private static final int seed = 133;
@@ -43,10 +43,6 @@ public class RandomReadWriteTest {
 
         t1.start();
         t2.start();
-
-        Thread.sleep(2000);
-
-        dummy();
 
         t1.join();
         t2.join();
@@ -95,7 +91,7 @@ public class RandomReadWriteTest {
             db.put(key, value, i, 0, 0, 0);
 
             if (i % 100_000 == 0) {
-                System.out.printf("Wrote %d records\n", i);
+                //System.out.printf("Wrote %d records\n", i);
             }
         }
 

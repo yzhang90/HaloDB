@@ -29,48 +29,28 @@ public class RWThread extends Thread {
         this.numOfRecords = numOfRecords;
         this.rand = new Random(99 + tid);
         this.randomDataGenerator = new RandomDataGenerator(99 + tid);
-        this.isPause = false;
-        this.isPauseOld = true;
     }
 
     @Override
     public void run() {
         for (int i = 0; i < round; i++) {
-            try {
-                while (isPause) {
-                    Thread.sleep(50);
-                    if (isPauseOld ==  false) {
-                        isPauseOld = true;
-                        System.out.println(String.format("Thread#%d is paused.", tid));
-                    }
-                }
-            } catch (Exception e) {}
-
-            if(isPause == false && isPauseOld == true) {
-                System.out.println(String.format("Thread#%d is running.", tid));
-            }
-            isPauseOld = false;
-
             int operation = rand.nextInt(2);
             long id = (long)rand.nextInt(numOfRecords);
-            // int sleep1 = rand.nextInt(500);
-            // int sleep2 = rand.nextInt(500);
-            // int sleep3 = rand.nextInt(500);
+            int sleep1 = rand.nextInt(500);
+            int sleep2 = rand.nextInt(500);
+            int sleep3 = rand.nextInt(500);
             int resId = rId.getAndIncrement();
-            if(resId % 10_000 == 0) {
-                System.out.printf("Processed %d requests\n", resId);
-            }
             if (operation == 0) {
                 // read
                 byte[] key = longToBytes(id);
                 try {
-                    // byte[] result = db.get(key, resId, sleep1, sleep2);
-                    byte[] result = db.get(key, resId, 0, 0);
-                    if (result == null) {
+                    byte[] result = db.get(key, resId, sleep1, sleep2);
+                    //byte[] result = db.get(key, resId, 0, 0);
+                    /*if (result == null) {
                         System.out.println("[HaloRead#" + tid + "#" + i + "#" + resId + "] " + "No value for key " +id);
                     } else {
-                        // System.out.println("[HaloRead#" + tid + "#" + i + "#" + resId + "] " + id + "," + bytesToLong(result));
-                    }
+                        System.out.println("[HaloRead#" + tid + "#" + i + "#" + resId + "] " + id + "," + bytesToLong(result));
+                    }*/
                 } catch (HaloDBException e) {}
             } else {
                 // write
@@ -85,20 +65,11 @@ public class RWThread extends Thread {
                 } catch (Exception e) {}
                 byte[] value = outputStream.toByteArray();
 
-                // db.put(key, value, resId, sleep1, sleep2, sleep3);
-                db.put(key, value, resId, 0, 0, 0);
-                // System.out.println("[HaloWrite#" + tid + "#" + i + "#" + resId + "] " + id + "," + val);
+                db.put(key, value, resId, sleep1, sleep2, sleep3);
+                // db.put(key, value, resId, 0, 0, 0);
+                // System.out.println("[HaloWrite#" + tid + "#" + i + "#" + resId + "] " + id + "," + value);
             }
         }
-    }
-
-
-    public void pauseExec() {
-        isPause = true;
-    }
-
-    public void resumeExec() {
-        isPause = false;
     }
 
     static byte[] longToBytes(long value) {

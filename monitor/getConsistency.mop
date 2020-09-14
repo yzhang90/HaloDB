@@ -1,8 +1,6 @@
 package mop;
 
 import java.io.*;
-import java.nio.ByteBuffer;
-import java.nio.channels.FileChannel;
 import java.util.*;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.zip.CRC32;
@@ -10,28 +8,21 @@ import com.oath.halodb.*;
 import com.oath.halodb.javamop.*;
 
 getConsistency() {
-    // see getConsistency.p
-    Map<Integer, PutResponseWithPending> snapshotAtGetReq = new ConcurrentHashMap<Integer, PutResponseWithPending>();
+
+    Map<Integer, MonitorRecord> snapshotAtGetReq = new ConcurrentHashMap<Integer, MonitorRecord>();
+    Map<Long, MonitorRecord> putResponseMap = new ConcurrentHashMap<Long, MonitorRecord>();
     Map<Integer, Boolean> expectedPutReqSuccess = new ConcurrentHashMap<Integer, Boolean>();
-    Map<Long, PutResponseWithPending> putWithPendingMap = new ConcurrentHashMap<Long, PutResponseWithPending>();
-    Map<Long, Set<Integer>> getReqIds = new ConcurrentHashMap<Long, Set<Integer>>();
-    // map to store the actual writes to the disk
-    Map<Long, Long> diskWrite = new ConcurrentHashMap<Long, Long>();
-    // list to store all the testing threads
-    ArrayList<RWThread> threads = new ArrayList<RWThread>();
     HaloDBStorageEngine dbEngine;
 
-    unsynced event create_thread after () returning (RWThread t):
+    event create_thread after () returning (RWThread t):
         call(* RWThread.new(..)) {
-            threads.add(t);
             System.out.println("Create RWThread.");
     }
 
-    unsynced event monitor_init after (HaloDBStorageEngine dbEngine):
+    event monitor_init after (HaloDBStorageEngine dbEngine):
         call(* HaloDBStorageEngine.open())
         && target(dbEngine) {
             this.dbEngine = dbEngine;
-            // initialize the putResponse map
             try {
                 HaloDBIterator iterator = dbEngine.db.newIterator();
                 while (iterator.hasNext()) {
@@ -42,9 +33,7 @@ getConsistency() {
                     long seq = MopUtils.bytesToLong(seqBytes);
                     long checksum = MopUtils.computeChecksum(value);
                     MonitorRecord mr = new MonitorRecord(key, checksum, seq);
-                    Set<MonitorRecord> ps = ConcurrentHashMap.newKeySet();
-                    PutResponseWithPending prwp = new PutResponseWithPending(mr, ps);
-                    putWithPendingMap.put(new Long(key), prwp);
+                    putResponseMap.put(new Long(key), mr);
                 }
              } catch (HaloDBException e) {
                 e.printStackTrace();
@@ -52,46 +41,30 @@ getConsistency() {
     }
 
 
-    unsynced event putReq before (byte[] key, byte[] value, int rId):
+    event putReq before (byte[] key, byte[] value, int rId):
         execution(* HaloDBStorageEngine.put(byte[], byte[], int, int, int, int))
         && args(key, value, rId, ..) {
             long keyLong = MopUtils.bytesToLong(key);
             byte[] seqBytes = Arrays.copyOfRange(value, 1024, value.length);
             long seq = MopUtils.bytesToLong(seqBytes);
             long checksum = MopUtils.computeChecksum(value);
-            MonitorRecord pr = new MonitorRecord(keyLong, checksum, seq);
+            MonitorRecord mr = new MonitorRecord(keyLong, checksum, seq);
 
-            if(putWithPendingMap.containsKey(keyLong)) {
-                PutResponseWithPending prwp = putWithPendingMap.get(keyLong);
-                if(prwp.lastSuccessfulPut != null && seq <= prwp.lastSuccessfulPut.seq) {
+            if(putResponseMap.containsKey(keyLong)) {
+                MonitorRecord pr = putResponseMap.get(keyLong);
+                if(seq <= pr.seq) {
                     expectedPutReqSuccess.put(rId, false);
                 } else {
                     expectedPutReqSuccess.put(rId, true);
-                    prwp.pendingRecords.add(pr);
                 }
 
             } else {
                 expectedPutReqSuccess.put(rId, true);
-                Set<MonitorRecord> ps = ConcurrentHashMap.newKeySet();
-                ps.add(pr);
-                PutResponseWithPending prwp = new PutResponseWithPending(null, ps);
-                putWithPendingMap.put(keyLong, prwp);
-            }
-
-            if(getReqIds.containsKey(keyLong)) {
-                Set<Integer> reqIds = getReqIds.get(keyLong);
-                // snapshotAtGetReq may be modified during the for loop!
-                for(Integer rid : reqIds) {
-                    PutResponseWithPending prwp = snapshotAtGetReq.get(rid);
-                    if(prwp != null) {
-                        prwp.pendingRecords.add(pr);
-                    }
-                }
             }
     }
 
 
-    unsynced event putResp after (byte[] key, byte[] value, int rId) returning (DBPutResult result):
+    event putResp after (byte[] key, byte[] value, int rId) returning (DBPutResult result):
         execution(DBPutResult HaloDBStorageEngine.put(byte[], byte[], int, int, int, int))
         && args(key, value, rId, ..) {
             long keyLong = MopUtils.bytesToLong(result.key);
@@ -100,130 +73,46 @@ getConsistency() {
             long checksum = MopUtils.computeChecksum(value);
             MonitorRecord mr = new MonitorRecord(keyLong, checksum, seq);
 
-            PutResponseWithPending prwp = putWithPendingMap.get(keyLong);
-
             if (result.success) {
                 if(!expectedPutReqSuccess.get(rId)) {
-                    System.out.println("put is expected to fail but it actually succeed.");
+                    System.out.println("ERROR: put is expected to fail but it actually succeed.");
                 }
-
-                prwp.lastSuccessfulPut = mr;
+                putResponseMap.put(keyLong, mr);
             } else {
-                System.out.println(String.format("[putRes#%d] Failed", rId));
+                // System.out.println(String.format("[putRes#%d] Failed", rId));
             }
-
             expectedPutReqSuccess.remove(rId);
-            prwp.pendingRecords.remove(mr);
     }
 
 
-    unsynced event getReq before (byte[] key, int rId):
+    event getReq before (byte[] key, int rId):
         execution(byte[] HaloDBStorageEngine.get(byte[], int, int, int))
         && args(key, rId, ..) {
             long keyLong = MopUtils.bytesToLong(key);
-            if (putWithPendingMap.containsKey(keyLong)) {
-                PutResponseWithPending prwp = putWithPendingMap.get(keyLong);
-                MonitorRecord lsp = prwp.lastSuccessfulPut;
-                Set<MonitorRecord> ps = ConcurrentHashMap.newKeySet();
-                ps.addAll(prwp.pendingRecords);
-                snapshotAtGetReq.put(rId, new PutResponseWithPending(lsp, ps));
-            } else {
-                Set<MonitorRecord> ps = ConcurrentHashMap.newKeySet();
-                snapshotAtGetReq.put(rId, new PutResponseWithPending(null, ps));
-            }
-
-            if (getReqIds.containsKey(keyLong)) {
-                Set<Integer> reqIds = getReqIds.get(keyLong);
-                reqIds.add(rId);
-            } else {
-                Set<Integer> reqIds = ConcurrentHashMap.newKeySet();
-                reqIds.add(rId);
-                getReqIds.put(keyLong, reqIds);
+            if (putResponseMap.containsKey(keyLong)) {
+                MonitorRecord pr = putResponseMap.get(keyLong);
+                snapshotAtGetReq.put(rId, pr);
             }
     }
 
 
-    unsynced event getResCall after (byte[] key, int rId) returning (byte[] result):
+    event getResCall after (byte[] key, int rId) returning (byte[] result):
         call(byte[] HaloDBStorageEngine.get(byte[], int, int, int))
         && args(key, rId, ..) {
             long keyLong = MopUtils.bytesToLong(key);
-            PutResponseWithPending prwp = snapshotAtGetReq.get(rId);
+            MonitorRecord pr = snapshotAtGetReq.get(rId);
             if (result == null) {
-                if (prwp.lastSuccessfulPut != null) {
-                    System.out.println("Get is not Consistent!! Get responded KEYNOTFOUND even when a record existed.");
+                if (pr != null) {
+                    System.out.println("ERROR: Get is not Consistent!! Get responded KEYNOTFOUND even when a record existed.");
                 }
             } else {
                  byte[] resultSeqBytes = Arrays.copyOfRange(result, 1024, result.length);
                  long resultSeq = MopUtils.bytesToLong(resultSeqBytes);
-                 long resultChecksum = MopUtils.computeChecksum(result);
-                 MonitorRecord mr = new MonitorRecord(keyLong, resultChecksum, resultSeq);
-                 if (prwp.lastSuccessfulPut != null && !(prwp.lastSuccessfulPut.seq <= resultSeq)) {
-                     System.out.println("Get is not Consistent! Expected a larger sequencer.");
+                 if (pr != null && !(pr.seq <= resultSeq)) {
+                     System.out.println("ERROR: Get is not Consistent! Expected a larger sequencer.");
                  }
-
-                 // make sure response is valid
-                 if (! ((prwp.lastSuccessfulPut != null && prwp.lastSuccessfulPut.equals(mr)) ||
-                        prwp.pendingRecords.contains(mr))) {
-                     System.out.println("Incorrect response received in Get response");
-                 }
+                 snapshotAtGetReq.remove(rId);
             }
-
-            // remove snapshot delete id from getReqIds first
-            getReqIds.get(keyLong).remove(rId);
-            snapshotAtGetReq.remove(rId);
-    }
-
-    // only instruments the FileChannel.write in the HaloDBFile.writeToChannel function because
-    // FileChannel.write is also used to write meta data onto the disk.
-    unsynced event channelWrite after (ByteBuffer[] buffers):
-        cflowbelow(call(* HaloDBFile.writeToChannel(..)))
-        && call(* FileChannel.write(ByteBuffer[]))
-        && args(buffers) {
-            diskWrite.put(MopUtils.bytesToLong(buffers[1].array()), MopUtils.computeChecksum(buffers[2].array()));
-    }
-
-
-    event snapshot_Before before():
-        call(* RandomReadWriteTest.dummy()) {
-            for (int i = 0; i < threads.size(); i++) {
-                RWThread t = threads.get(i);
-                // we assume that there is a pause function to pause the execution of the thread
-                t.pauseExec();
-            }
-            try {
-                dbEngine.db.pauseCompaction();
-            } catch (Exception e) {}
-    }
-
-
-    event snapshot_After after():
-        call(* RandomReadWriteTest.dummy()) {
-            try{
-                /*HaloDBIterator iterator = dbEngine.db.newIterator();
-                while (iterator.hasNext()) {
-                    Record record = iterator.next();
-                    long key = MopUtils.bytesToLong(record.getKey());
-                    long value = MopUtils.bytesToLong(record.getValue());
-                    System.out.println(String.format("Disk: %d, %d", key, value));
-                }*/
-                for (Map.Entry<Long, Long> entry : diskWrite.entrySet()) {
-                    System.out.println(String.format("Disk: %d, %d", entry.getKey(), entry.getValue()));
-                }
-                for (PutResponseWithPending prwp : putWithPendingMap.values()) {
-                    System.out.println(String.format("Memory: %d, %d", prwp.lastSuccessfulPut.key, prwp.lastSuccessfulPut.checksum));
-                }
-                for (int i = 0; i < threads.size(); i++) {
-                    RWThread t = threads.get(i);
-                    t.resumeExec();
-                }
-                dbEngine.db.resumeCompaction();
-            } catch (Exception e) {}
-    }
-
-
-    event testEnd after():
-        execution(* RandomReadWriteTest.testReadWrite()) {
-            System.out.println("End of Test");
     }
 
 }
